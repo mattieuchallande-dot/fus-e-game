@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu Fusée Zig-Zag Infini</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #0f0f19;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            color: white;
+            touch-action: manipulation;
+        }
+        canvas {
+            background-color: #0f0f19;
+            box-shadow: 0 0 20px rgba(0,255,200,0.2);
+            max-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="1080" height="1920"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const WIDTH = 1080;
+const HEIGHT = 1920;
+
+let player = {
+    x: WIDTH / 2,
+    y: HEIGHT - 200,
+    size: 160,
+    speedX: 5.5,
+    speedY: 5.5,
+    dirX: 1,
+    fuel: 100,
+    maxFuel: 100
+};
+
+let gameStarted = false;
+let gameOver = false;
+let clicksCount = 0;
+let scoreDistance = 0;
+
+let obstacles = [];
+let fuelItems = [];
+
+// Chargement des images
+const imgPlayer = new Image();
+imgPlayer.src = "player.png";
+
+const imgFond = new Image();
+imgFond.src = "fond.png";
+
+const imgCarburant = new Image();
+imgCarburant.src = "carburant.png";
+
+let obstacleImages = [];
+for (let i = 1; i <= 3; i++) {
+    let img = new Image();
+    img.src = `obstacle${i}.png`;
+    obstacleImages.push(img);
+}
+
+function resetGame() {
+    player.x = WIDTH / 2;
+    player.y = HEIGHT - 200;
+    player.dirX = 1;
+    player.fuel = 100;
+    clicksCount = 0;
+    scoreDistance = 0;
+    gameOver = false;
+    gameStarted = false;
+
+    obstacles = [];
+    fuelItems = [];
+
+    let currY = HEIGHT - 800;
+    for (let i = 0; i < 15; i++) {
+        spawnElement(currY);
+        currY -= 650;
+    }
+}
+
+function spawnElement(yPos) {
+    let obsSize = 240;
+    
+    // ANTI-GLITCH : Les obstacles peuvent maintenant apparaître de tout 
+    // en haut à gauche (0) jusqu'à tout à droite (WIDTH - obsSize), 
+    // fermant complètement les issues faciles sur les bordures.
+    let obsX = Math.floor(Math.random() * (WIDTH - obsSize));
+    let randomImgIndex = Math.floor(Math.random() * obstacleImages.length);
+
+    let newObstacle = {
+        x: obsX,
+        y: yPos,
+        size: obsSize,
+        imgIndex: randomImgIndex
+    };
+    obstacles.push(newObstacle);
+
+    // Génération d'une orbe de carburant géante (taille 240) placée là où il y a un peu d'espace libre
+    if (Math.random() < 0.6) {
+        let fSize = 240;
+        let fX;
+        
+        if (obsX > WIDTH / 2) {
+            fX = Math.floor(Math.random() * (obsX - fSize));
+        } else {
+            fX = obsX + obsSize + Math.floor(Math.random() * 50);
+        }
+        fX = Math.max(20, Math.min(WIDTH - fX - fSize, fX));
+
+        fuelItems.push({
+            x: fX,
+            y: yPos + 250,
+            size: fSize
+        });
+    }
+}
+
+window.addEventListener("pointerdown", () => {
+    if (!gameStarted) {
+        gameStarted = true;
+    } else if (gameOver) {
+        resetGame();
+        gameStarted = true;
+    } else {
+        player.dirX *= -1;
+        clicksCount++;
+    }
+});
+
+function update() {
+    if (!gameStarted || gameOver) return;
+
+    player.fuel -= 0.04; 
+    if (player.fuel <= 0) {
+        player.fuel = 0;
+        gameOver = true;
+    }
+
+    player.y -= player.speedY;
+    player.x += player.speedX * player.dirX;
+
+    scoreDistance = Math.floor((HEIGHT - player.y) / 10);
+
+    if (player.x < 0) player.x = WIDTH;
+    if (player.x > WIDTH) player.x = 0;
+
+    let highestObstacleY = obstacles.length > 0 ? obstacles[obstacles.length - 1].y : player.y;
+    if (player.y - highestObstacleY < 3000) {
+        spawnElement(highestObstacleY - 650);
+    }
+
+    // Collisions obstacles
+    let playerRadius = player.size * 0.30; 
+    let playerCenterX = player.x;
+    let playerCenterY = player.y;
+
+    for (let obs of obstacles) {
+        let obsRadius = obs.size * 0.30;
+        let obsCenterX = obs.x + obs.size / 2;
+        let obsCenterY = obs.y + obs.size / 2;
+
+        let dx = playerCenterX - obsCenterX;
+        let dy = playerCenterY - obsCenterY;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < (playerRadius + obsRadius)) {
+            gameOver = true;
+        }
+    }
+
+    // Collecte du carburant
+    for (let i = fuelItems.length - 1; i >= 0; i--) {
+        let f = fuelItems[i];
+        let fRadius = f.size * 0.4;
+        let fCenterX = f.x + f.size / 2;
+        let fCenterY = f.y + f.size / 2;
+
+        let dx = playerCenterX - fCenterX;
+        let dy = playerCenterY - fCenterY;
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < (playerRadius + fRadius)) {
+            player.fuel = Math.min(player.maxFuel, player.fuel + 45);
+            fuelItems.splice(i, 1);
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+    
+    if (imgFond.complete && imgFond.naturalWidth !== 0) {
+        ctx.drawImage(imgFond, 0, 0, WIDTH, HEIGHT);
+    } else {
+        ctx.fillStyle = "#0f0f19";
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    }
+
+    let camOffset = player.y - HEIGHT / 2;
+
+    // Orbes de carburant géantes
+    for (let f of fuelItems) {
+        let screenY = f.y - camOffset;
+        if (screenY > -300 && screenY < HEIGHT + 300) {
+            if (imgCarburant.complete && imgCarburant.naturalWidth !== 0) {
+                ctx.drawImage(imgCarburant, f.x, screenY, f.size, f.size);
+            } else {
+                ctx.save();
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = "#00c8ff";
+                ctx.fillStyle = "#00f0ff";
+                ctx.beginPath();
+                ctx.arc(f.x + f.size/2, screenY + f.size/2, f.size/2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+    }
+
+    // Obstacles couvrant toute la largeur
+    for (let obs of obstacles) {
+        let screenY = obs.y - camOffset;
+        if (screenY > -300 && screenY < HEIGHT + 300) {
+            let img = obstacleImages[obs.imgIndex];
+            if (img && img.complete && img.naturalWidth !== 0) {
+                ctx.drawImage(img, obs.x, screenY, obs.size, obs.size);
+            } else {
+                ctx.fillStyle = "#ff0080";
+                ctx.fillRect(obs.x, screenY, obs.size, obs.size);
+            }
+        }
+    }
+
+    // Joueur
+    let screenPlayerY = player.y - camOffset;
+    if (imgPlayer.complete && imgPlayer.naturalWidth !== 0) {
+        ctx.drawImage(imgPlayer, player.x - player.size/2, screenPlayerY - player.size/2, player.size, player.size);
+    } else {
+        ctx.fillStyle = "#00ffc8";
+        ctx.fillRect(player.x - player.size/2, screenPlayerY - player.size/2, player.size, player.size);
+    }
+
+    // HUD
+    ctx.fillStyle = "white";
+    ctx.font = "34px Arial";
+    ctx.fillText(`Altitude : ${scoreDistance}m`, 50, 70);
+
+    ctx.fillText("Carburant :", 50, 130);
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(260, 98, 300, 35);
+    
+    if (player.fuel > 50) ctx.fillStyle = "#00ff64";
+    else if (player.fuel > 20) ctx.fillStyle = "#ffc800";
+    else ctx.fillStyle = "#ff0050";
+    
+    ctx.fillRect(262, 100, (player.fuel / 100) * 296, 31);
+
+    if (!gameStarted) {
+        ctx.fillStyle = "#00ffc8";
+        ctx.font = "bold 60px Arial";
+        ctx.fillText("ZIG-ZAG INFINI", WIDTH / 2 - 220, HEIGHT / 3);
+        ctx.fillStyle = "white";
+        ctx.font = "35px Arial";
+        ctx.fillText("Touche l'écran pour décoller !", WIDTH / 2 - 230, HEIGHT / 2);
+    } else if (gameOver) {
+        ctx.fillStyle = "#ff0080";
+        ctx.font = "bold 60px Arial";
+        ctx.fillText("GAME OVER", WIDTH / 2 - 170, HEIGHT / 3);
+        ctx.fillStyle = "white";
+        ctx.font = "35px Arial";
+        ctx.fillText(`Altitude finale : ${scoreDistance}m`, WIDTH / 2 - 190, HEIGHT / 2 - 60);
+        ctx.fillText("Touche pour rejouer", WIDTH / 2 - 160, HEIGHT / 2 + 20);
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+resetGame();
+loop();
+</script>
+
+</body>
+</html>
