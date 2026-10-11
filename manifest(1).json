@@ -1,0 +1,12 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "mattieuchallande-dot.github",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "mattieuchallande-dot.github",
+  "start_url": "/index.html",
+  "theme_color": "#ffffff",
+  "id": "Space fire"
+}
