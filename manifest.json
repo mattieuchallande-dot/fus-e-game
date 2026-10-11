@@ -1,12 +1,20 @@
 {
-  "background_color": "#ffffff",
-  "dir": "ltr",
-  "display": "standalone",
-  "name": "mattieuchallande-dot.github",
-  "orientation": "any",
-  "scope": "/",
-  "short_name": "mattieuchallande-dot.github",
-  "start_url": "/",
-  "theme_color": "#ffffff",
-  "id": "Space fire"
+  "name": "Space Fire",
+  "short_name": "SpaceFire",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "background_color": "#0f0f19",
+  "theme_color": "#0f0f19",
+  "icons": [
+    {
+      "src": "player.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "player.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
